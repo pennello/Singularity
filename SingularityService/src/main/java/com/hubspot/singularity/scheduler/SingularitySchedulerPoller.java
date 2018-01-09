@@ -34,6 +34,7 @@ public class SingularitySchedulerPoller extends SingularityLeaderOnlyPoller {
   private final SingularityMesosSchedulerClient schedulerClient;
   private final SingularityMesosOfferScheduler offerScheduler;
   private final DisasterManager disasterManager;
+  private final SingularitySchedulerLock lock;
 
   @Inject
   SingularitySchedulerPoller(SingularityMesosOfferScheduler offerScheduler, OfferCache offerCache, SingularityMesosSchedulerClient schedulerClient,
@@ -44,6 +45,7 @@ public class SingularitySchedulerPoller extends SingularityLeaderOnlyPoller {
     this.offerScheduler = offerScheduler;
     this.schedulerClient = schedulerClient;
     this.disasterManager = disasterManager;
+    this.lock = lock;
   }
 
   @Override
@@ -53,46 +55,50 @@ public class SingularitySchedulerPoller extends SingularityLeaderOnlyPoller {
       return;
     }
 
-    final long start = System.currentTimeMillis();
+    final long start = lock.lockOffers("schedulerPoller");
+    try {
 
-    List<CachedOffer> cachedOffers = offerCache.checkoutOffers();
-    Map<String, CachedOffer> offerIdToCachedOffer = new HashMap<>(cachedOffers.size());
-    List<Offer> offers = new ArrayList<>(cachedOffers.size());
+      List<CachedOffer> cachedOffers = offerCache.checkoutOffers();
+      Map<String, CachedOffer> offerIdToCachedOffer = new HashMap<>(cachedOffers.size());
+      List<Offer> offers = new ArrayList<>(cachedOffers.size());
 
-    for (CachedOffer cachedOffer : cachedOffers) {
-      offerIdToCachedOffer.put(cachedOffer.getOfferId(), cachedOffer);
-      offers.add(cachedOffer.getOffer());
-    }
-
-    List<SingularityOfferHolder> offerHolders = offerScheduler.checkOffers(offers);
-
-    if (offerHolders.isEmpty()) {
-      return;
-    }
-
-    int acceptedOffers = 0;
-    int launchedTasks = 0;
-
-    for (SingularityOfferHolder offerHolder : offerHolders) {
-      List<CachedOffer> cachedOffersFromHolder = offerHolder.getOffers().stream().map((o) -> offerIdToCachedOffer.get(o.getId().getValue())).collect(Collectors.toList());
-
-      if (!offerHolder.getAcceptedTasks().isEmpty()) {
-        List<Offer> unusedOffers = offerHolder.launchTasksAndGetUnusedOffers(schedulerClient);
-        launchedTasks += offerHolder.getAcceptedTasks().size();
-        acceptedOffers += cachedOffersFromHolder.size() - unusedOffers.size();
-
-        // Return to the cache those offers which we checked out of the cache, but didn't end up using.
-        List<CachedOffer> unusedCachedOffers = unusedOffers.stream().map((o) -> offerIdToCachedOffer.get(o.getId().getValue())).collect(Collectors.toList());
-        unusedCachedOffers.forEach(offerCache::returnOffer);
-
-        // Notify the cache of the cached offers that we did use.
-        cachedOffersFromHolder.removeAll(unusedCachedOffers);
-        cachedOffersFromHolder.forEach(offerCache::useOffer);
-      } else {
-        cachedOffersFromHolder.forEach(offerCache::returnOffer);
+      for (CachedOffer cachedOffer : cachedOffers) {
+        offerIdToCachedOffer.put(cachedOffer.getOfferId(), cachedOffer);
+        offers.add(cachedOffer.getOffer());
       }
-    }
 
-    LOG.info("Launched {} tasks on {} cached offers (returned {}) in {}", launchedTasks, acceptedOffers, offerHolders.size() - acceptedOffers, JavaUtils.duration(start));
+      List<SingularityOfferHolder> offerHolders = offerScheduler.checkOffers(offers);
+
+      if (offerHolders.isEmpty()) {
+        return;
+      }
+
+      int acceptedOffers = 0;
+      int launchedTasks = 0;
+
+      for (SingularityOfferHolder offerHolder : offerHolders) {
+        List<CachedOffer> cachedOffersFromHolder = offerHolder.getOffers().stream().map((o) -> offerIdToCachedOffer.get(o.getId().getValue())).collect(Collectors.toList());
+
+        if (!offerHolder.getAcceptedTasks().isEmpty()) {
+          List<Offer> unusedOffers = offerHolder.launchTasksAndGetUnusedOffers(schedulerClient);
+          launchedTasks += offerHolder.getAcceptedTasks().size();
+          acceptedOffers += cachedOffersFromHolder.size() - unusedOffers.size();
+
+          // Return to the cache those offers which we checked out of the cache, but didn't end up using.
+          List<CachedOffer> unusedCachedOffers = unusedOffers.stream().map((o) -> offerIdToCachedOffer.get(o.getId().getValue())).collect(Collectors.toList());
+          unusedCachedOffers.forEach(offerCache::returnOffer);
+
+          // Notify the cache of the cached offers that we did use.
+          cachedOffersFromHolder.removeAll(unusedCachedOffers);
+          cachedOffersFromHolder.forEach(offerCache::useOffer);
+        } else {
+          cachedOffersFromHolder.forEach(offerCache::returnOffer);
+        }
+      }
+
+      LOG.info("Launched {} tasks on {} cached offers (returned {}) in {}", launchedTasks, acceptedOffers, offerHolders.size() - acceptedOffers, JavaUtils.duration(start));
+    } finally {
+      lock.unlockOffers("schedulerPoller", start);
+    }
   }
 }

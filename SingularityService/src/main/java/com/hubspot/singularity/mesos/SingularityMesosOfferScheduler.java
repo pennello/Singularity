@@ -49,6 +49,7 @@ public class SingularityMesosOfferScheduler {
   private final TaskManager taskManager;
   private final SingularityMesosTaskPrioritizer taskPrioritizer;
   private final SingularityScheduler scheduler;
+  private final SingularitySchedulerLock lock;
   private final SingularityConfiguration configuration;
   private final SingularityMesosTaskBuilder mesosTaskBuilder;
   private final SingularitySlaveAndRackManager slaveAndRackManager;
@@ -67,6 +68,7 @@ public class SingularityMesosOfferScheduler {
                                         TaskManager taskManager,
                                         SingularityMesosTaskPrioritizer taskPrioritizer,
                                         SingularityScheduler scheduler,
+                                        SingularitySchedulerLock lock,
                                         SingularityConfiguration configuration,
                                         SingularityMesosTaskBuilder mesosTaskBuilder,
                                         SingularitySlaveAndRackManager slaveAndRackManager,
@@ -80,6 +82,7 @@ public class SingularityMesosOfferScheduler {
     this.defaultCustomExecutorResources = new Resources(customExecutorConfiguration.getNumCpus(), customExecutorConfiguration.getMemoryMb(), 0, customExecutorConfiguration.getDiskMb());
     this.taskManager = taskManager;
     this.scheduler = scheduler;
+    this.lock = lock;
     this.configuration = configuration;
     this.mesosTaskBuilder = mesosTaskBuilder;
     this.slaveAndRackManager = slaveAndRackManager;
@@ -129,6 +132,8 @@ public class SingularityMesosOfferScheduler {
               slaveAndRackHelper.getReservedSlaveAttributes(offersList.get(0)));
         })
         .collect(Collectors.toList());
+
+    // TODO - sort by task priority, loop and lock on request id
 
     final Map<String, Map<String, Integer>> tasksPerOfferPerRequest = new HashMap<>();
 
