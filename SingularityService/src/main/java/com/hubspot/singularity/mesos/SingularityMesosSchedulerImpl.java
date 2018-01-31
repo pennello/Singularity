@@ -37,7 +37,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import com.google.protobuf.ByteString;
 import com.hubspot.mesos.JavaUtils;
 import com.hubspot.singularity.RequestCleanupType;
 import com.hubspot.singularity.SingularityAbort;
@@ -430,11 +429,11 @@ public class SingularityMesosSchedulerImpl extends SingularityMesosScheduler {
       if (task.isPresent()) {
         if (task.get().getTaskRequest().getDeploy().getCustomExecutorCmd().isPresent()) {
           byte[] messageBytes = transcoder.toBytes(new SingularityTaskDestroyFrameworkMessage(taskId, user));
-          message(Message.newBuilder()
-              .setAgentId(MesosProtosUtils.toAgentId(task.get().getMesosTask().getAgentId()))
-              .setExecutorId(MesosProtosUtils.toExecutorId(task.get().getMesosTask().getExecutor().getExecutorId()))
-              .setData(ByteString.copyFrom(messageBytes))
-              .build());
+          mesosSchedulerClient.frameworkMessage(
+              MesosProtosUtils.toExecutorId(task.get().getMesosTask().getExecutor().getExecutorId()),
+              MesosProtosUtils.toAgentId(task.get().getMesosTask().getAgentId()),
+              messageBytes
+          );
         } else {
           LOG.warn("Not using custom executor, will not send framework message to destroy task");
         }
