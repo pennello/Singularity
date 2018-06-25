@@ -52,6 +52,7 @@ import com.hubspot.mesos.SingularityDockerNetworkType;
 import com.hubspot.mesos.SingularityDockerParameter;
 import com.hubspot.mesos.SingularityDockerPortMapping;
 import com.hubspot.mesos.SingularityDockerVolume;
+import com.hubspot.mesos.SingularityHostPath;
 import com.hubspot.mesos.SingularityMesosArtifact;
 import com.hubspot.mesos.SingularityMesosImage;
 import com.hubspot.mesos.SingularityMesosInfo;
@@ -357,7 +358,12 @@ class SingularityMesosTaskBuilder {
         final Volume.Source.Builder sourceBuilder = Volume.Source.newBuilder();
         final SingularityVolumeSource source = volumeInfo.getSource().get();
         sourceBuilder.setType(Volume.Source.Type.valueOf(source.getType().toString()));
-        if (source.getDockerVolume().isPresent()) {
+        if (source.getHostPath().isPresent()) {
+          final Volume.Source.HostPath.Builder hostPathBuilder = Volume.Source.HostPath.newBuilder();
+            final SingularityHostPath hostPath = source.getHostPath().get();
+            hostPathBuilder.setPath(hostPath.getPath());
+            sourceBuilder.setHostPath(hostPathBuilder.build());
+        } else if (source.getDockerVolume().isPresent()) {
           final Volume.Source.DockerVolume.Builder dockerVolumeBuilder = Volume.Source.DockerVolume.newBuilder();
           final SingularityDockerVolume dockerVolume = source.getDockerVolume().get();
           if (dockerVolume.getDriver().isPresent()) {
