@@ -15,13 +15,22 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class SingularityVolumeSource {
   private final SingularityVolumeSourceType type;
   private final Optional<SingularityDockerVolume> dockerVolume;
+  private final Optional<SingularityHostPath> hostPath;
 
   @JsonCreator
   public SingularityVolumeSource(
       @JsonProperty("type") SingularityVolumeSourceType type,
-      @JsonProperty("dockerVolume") Optional<SingularityDockerVolume> dockerVolume) {
+      @JsonProperty("dockerVolume") Optional<SingularityDockerVolume> dockerVolume,
+      @JsonProperty("hostPath") Optional<SingularityHostPath> hostPath) {
     this.type = MoreObjects.firstNonNull(type, SingularityVolumeSourceType.UNKNOWN);
     this.dockerVolume = dockerVolume;
+    this.hostPath = hostPath;
+  }
+
+  public SingularityVolumeSource(
+      @JsonProperty("type") SingularityVolumeSourceType type,
+      @JsonProperty("dockerVolume") Optional<SingularityDockerVolume> dockerVolume) {
+      this(type, dockerVolume, Optional.absent());
   }
 
   @Schema(description = "Volume source type")
@@ -34,6 +43,11 @@ public class SingularityVolumeSource {
     return dockerVolume;
   }
 
+  @Schema(description = "Host path spec", nullable = true)
+  public Optional<SingularityHostPath> getHostPath() {
+    return hostPath;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -44,12 +58,13 @@ public class SingularityVolumeSource {
     }
     SingularityVolumeSource that = (SingularityVolumeSource) o;
     return Objects.equals(type, that.type) &&
-        Objects.equals(dockerVolume, that.dockerVolume);
+        Objects.equals(dockerVolume, that.dockerVolume) &&
+        Objects.equals(hostPath, that.hostPath);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(type, dockerVolume);
+    return Objects.hash(type, dockerVolume, hostPath);
   }
 
   @Override
@@ -57,6 +72,7 @@ public class SingularityVolumeSource {
     return "SingularityVolumeSource{" +
         "type='" + type + '\'' +
         ", dockerVolume=" + dockerVolume +
+        ", hostPath=" + hostPath +
         '}';
   }
 }

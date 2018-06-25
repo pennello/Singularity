@@ -7,6 +7,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Beta
 @Schema
 public enum SingularityVolumeSourceType {
-    UNKNOWN, DOCKER_VOLUME
+    UNKNOWN, DOCKER_VOLUME, HOST_PATH
     /*, SANDBOX_PATH, SECRET unimplemented */
 }
